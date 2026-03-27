@@ -1,1 +1,66 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extracteur Rapport Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; max-width: 1200px; margin: 0 auto; padding: 15px; background: #f3f4f6; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; border-top: 6px solid #7c3aed; }
+        #status { margin: 15px 0; padding: 10px 15px; border-radius: 20px; font-weight: bold; font-size: 13px; display: inline-block; }
+        .loading { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .table-container { background: white; border-radius: 10px; overflow-x: auto; margin-top: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th, td { border: 1px solid #e5e7eb; padding: 12px; text-align: left; font-size: 12px; }
+        th { background: #7c3aed; color: white; text-transform: uppercase; }
+        tr:nth-child(even) { background: #f9fafb; }
+        .chat-section { margin-top: 20px; background: #fff; padding: 20px; border-radius: 10px; display: none; border-left: 5px solid #7c3aed; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-purple { background: #7c3aed; color: white; }
+        .btn-green { background: #10b981; color: white; width: 100%; margin-top: 15px; }
+        input[type="text"] { width: 70%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>📋 Assistant d'Extraction PDF</h2>
+    <p style="color: #6b7280; font-size: 0.85em;">Analyse IA stable (Mistral 7B) | GitHub Version</p>
+    <input type="file" id="pdf-file" accept="application/pdf">
+    <br>
+    <div id="status">Prêt : Sélectionnez un rapport PDF</div>
+</div>
+
+<div id="result-area" class="table-container"></div>
+
+<div id="chat-section" class="chat-section">
+    <strong>💬 Une correction ou un oubli ?</strong><br>
+    <div style="margin-top:10px;">
+        <input type="text" id="chat-input" placeholder="Ex: Corrige la date ou ajoute 1h de trajet...">
+        <button id="chat-send" class="btn btn-purple">Appliquer</button>
+    </div>
+    <button id="export-btn" class="btn btn-green">📥 Télécharger en Excel (CSV)</button>
+    <button onclick="localStorage.clear(); location.reload();" style="margin-top:20px; color:#9ca3af; background:none; border:none; cursor:pointer; font-size:10px; text-decoration:underline;">Réinitialiser la mémoire du téléphone</button>
+</div>
+
+<script>
+    const HF_TOKEN = "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";
+    const MODEL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3";
+
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+    let currentText = ""; 
+    let currentHtmlTable = ""; 
+
+    window.onload = () => {
+        const savedTable = localStorage.getItem("memo_table");
+        if (savedTable) {
+            currentHtmlTable = savedTable;
+            document.getElementById('result-area').innerHTML = currentHtmlTable;
+            document.getElementById('chat-section').style.display = "block";
+            updateStatus("✅ Session restaurée", "success");
